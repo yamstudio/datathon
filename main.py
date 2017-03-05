@@ -14,3 +14,8 @@ if __name__ == '__main__':
         dump()
     elif argv[1] == 'census':
         census()
+    elif argv[1] == 'crime':
+        crime()
+    elif argv[1] == 'regress':
+        if argv[2] == 'linear':
+            linear()

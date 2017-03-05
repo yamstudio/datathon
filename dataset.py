@@ -11,6 +11,7 @@ state_codes_to_fips = {}
 state_fips_to_codes = {}
 final = {}
 census_data = {}
+crime_data = {}
 
 
 def gen_fips():
@@ -120,7 +121,7 @@ def gen_cities():
                 try:
                     cities[x[0]][x[5]] = final[int(x[1] + x[2])]
                 except KeyError:
-                    print(int(x[1] + x[2]))
+                    continue
     cities['NY']['New York City'] = cities['NY']['New York']
     for k, v in state_names_to_codes.items():
         cities[k] = cities[v]
@@ -137,9 +138,11 @@ def dump():
                 except ValueError:
                     continue
     gen_cities()
-    print(cities['CA']['San Francisco'])
+    print(cities['MD']['Baltimore'])
     with open('cities', 'wb') as f:
         pickle.dump(cities, f)
+    with open('state_names_to_codes', 'wb') as f:
+        pickle.dump(state_names_to_codes, f)
 
 
 def census():
@@ -162,3 +165,74 @@ def census():
     print(census_data['NY']['New York'])
     with open('census_data', 'wb') as f:
         pickle.dump(census_data, f)
+
+
+def crime():
+    # www1.udel.edu/johnmack/data_library/crime_81-08_by_county.xls
+    gen_fips()
+    print(fips[state_codes_to_fips['NY']]['new york'])
+    for v in state_names_to_codes.values():
+        crime_data[v] = {}
+    with open('demographics_data/CRIME-Table 1.csv', 'r', encoding='mac_roman') as csvfile:
+        reader = csv.reader(csvfile)
+        c = 0
+        m = {}
+        s = [str(x).zfill(2) for x in range(9)]
+        s1 = ['violent', 'murder', 'rape', 'robbery', 'assault', 'property', 'burglary', 'larceny', 'vehicle']
+        for z in next(reader):
+            for ss in s:
+                if ss in z:
+                    m[c] = z
+                    break
+            c += 1
+        k = sorted(list(m.keys()))
+        for x in reader:
+            if not x[1]:
+                continue
+            crime_data[x[1]][int(x[2])] = {}
+            h = 0
+            for ss in s1:
+                crime_data[x[1]][int(x[2])][ss] = sum(map(int, [x[i] for i in k[h: h + 9]]))
+                h += 9
+    with open('demographics_data/FINAL_DATA.csv', 'r', encoding='mac_roman') as csvfile:
+        with open('demographics_data/FINAL_CRIME_DATA.csv', 'w') as outfile:
+            data = list(csv.reader(csvfile))
+            data[0].extend(s1)
+            writer = csv.writer(outfile)
+            writer.writerow(data[0])
+            for x in data[1:]:
+                try:
+                    state = state_names_to_codes[x[3]]
+                    statef = state_codes_to_fips[state]
+                except KeyError:
+                    continue
+                try:
+                    county = x[4].lower()
+                    code = int(fips[statef][county])
+                except KeyError:
+                    if county == 'new york city':
+                        code = 36047
+                    else:
+                        try:
+                            if 'city' in county:
+                                county.replace(' city', '')
+                            else:
+                                county += ' city'
+                            code = int(fips[statef][county])
+                        except KeyError:
+                            print(county)
+                            continue
+                try:
+                    x.extend([crime_data[state][code][i] for i in s1])
+                except KeyError:
+                    print(state, county, code)
+                    # try:
+                    #     print(crime_data[state][county])
+                    #
+                    #     x.extend([crime_data[state][county][i] for i in s1])
+                    # except KeyError:
+                    continue
+                writer.writerow(x)
+
+
+
